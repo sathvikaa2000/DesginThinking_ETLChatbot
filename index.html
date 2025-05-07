@@ -56,6 +56,35 @@
       padding: 12px 16px;
       border-radius: 20px;
       display: inline-block;
+      max-width: 80%;
+    }
+    
+    .step-list {
+      list-style-type: none;
+      padding-left: 0;
+      margin: 10px 0;
+    }
+    
+    .step {
+      background-color: #f0f8ff;
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 8px;
+      border-left: 3px solid #1e88e5;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .step-number {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      background-color: #1e88e5;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 8px;
+      font-weight: bold;
     }
 
     #input-area {
@@ -275,6 +304,10 @@ const hierarchy = {
   export: { label: "Export & Logs", options: { export: "Can I export the cleaned data?", reportBug: "How do I report a bug?", escalate: "How to escalate an issue?", viewStatus: "How do I check job status?" } }
 };
 
+// Track if this is the second time feedback is being collected
+let secondFeedbackAttempt = false;
+let currentQueryValue = null;
+
 const responses = {
   wizard: "Go to Tools > Pipeline Wizard for step-by-step help.",
   preview: "Use the Preview button in Transformation section.",
@@ -299,34 +332,33 @@ const responses = {
   viewStatus: "Job status is available under Job Monitor tab."
 };
 
-// Detailed responses with expanded steps
+// Detailed responses for when user is not satisfied
 const detailedResponses = {
-  wizard: "1. Navigate to the top menu bar and click on 'Tools'\n2. Look for 'Pipeline Wizard' in the dropdown menu and click on it\n3. The wizard will open with a series of steps to follow\n4. Start with selecting your data source in the first step\n5. Follow the guided process through each tab: Source, Transform, and Destination\n6. Use the Next/Back buttons at the bottom to navigate between steps\n7. Click Finish when you're done to create your pipeline",
-  preview: "1. Open your pipeline in the editor view\n2. Go to the Transformation section (middle tab)\n3. Look for the 'Preview' button with an eye icon next to your transformation steps\n4. Click on this button\n5. A new window will open showing a sample of your transformed data\n6. You can adjust how many sample records to show using the dropdown\n7. Close the preview when finished by clicking the X in the corner",
-  filter: "1. In your pipeline editor, go to the transformation step\n2. Click the '+' button to add a new transformation\n3. Select 'Filter' from the transformation types\n4. Choose the field you want to filter on from the dropdown\n5. Select an operator (equals, greater than, etc.)\n6. Enter the value to filter by\n7. Click 'Apply' to add the filter to your pipeline\n8. Test it with the Preview button to ensure it works as expected",
-  summarize: "1. Open your pipeline and navigate to the transformation area\n2. Click '+' to add a new transformation step\n3. Select 'Group By' from the transformation options\n4. In the configuration panel, select which field(s) to group by\n5. Under 'Metrics', choose which calculations to perform (sum, count, avg, min, max)\n6. Select which fields these metrics should apply to\n7. Give your output columns descriptive names\n8. Click 'Apply' to add this transformation to your pipeline",
-  customUI: "1. From the main dashboard, look for the gear icon (⚙️) in the top-right corner\n2. Click on this icon to open the Settings menu\n3. Select 'UI Preferences' from the list of options\n4. You'll see tabs for 'Layout', 'Theme', and 'Widgets'\n5. Under 'Layout', you can choose between grid or list views\n6. The 'Theme' tab allows you to select color schemes\n7. In 'Widgets', you can drag and drop elements to rearrange your dashboard\n8. Don't forget to click 'Save' when you're finished customizing",
-  create: "1. Go to the main navigation and click on 'Pipelines'\n2. Look for a '+ Create New' button and click it\n3. Start with the Source section - select your data source type (database, file, etc.)\n4. Configure connection details (server, credentials, etc.)\n5. Click 'Next' to proceed to Transformations\n6. Add any needed transformations (filters, joins, calculations)\n7. Click 'Next' to go to Destination setup\n8. Select where the data should be loaded\n9. Configure any destination-specific settings\n10. Name your pipeline at the top of the page\n11. Click 'Save' to store your pipeline\n12. Finally, click 'Run Now' to execute it immediately",
-  schedule: "1. Navigate to the main menu and select 'Scheduler'\n2. Look for the 'Create Job' button and click it\n3. From the dropdown, select the pipeline you want to schedule\n4. Set the recurrence pattern - options include hourly, daily, weekly, monthly\n5. Set the specific time when the job should run\n6. Configure any notification settings (email on success/failure)\n7. Set any dependencies if this job needs to wait for others to complete\n8. Name your scheduled job\n9. Click 'Save' to activate the schedule",
-  reuse: "1. Go to the Pipelines section of the application\n2. Find the pipeline you want to use as a template\n3. Click the three dots menu (⋮) next to that pipeline\n4. Select 'Save as Template' from the dropdown menu\n5. Give your template a descriptive name\n6. Add any notes about what the template is for\n7. Click 'Save'\n8. When creating a new pipeline, you'll see a 'Use Template' option\n9. Select your saved template to start with a pre-configured pipeline\n10. Customize as needed for your specific use case",
-  conditional: "1. Open your pipeline in edit mode\n2. Go to the transformation section\n3. Click '+' to add a new transformation\n4. Select 'If-Then Logic' from the transformation types\n5. In the 'If' section, build your condition (e.g., Column A > 100)\n6. You can add multiple conditions with AND/OR operators\n7. In the 'Then' section, specify what should happen when conditions are true\n8. Add an 'Else' condition if you need different actions for false results\n9. You can nest multiple If-Then blocks for complex logic\n10. Click 'Apply' to add this to your transformation chain",
-  failure: "1. Go to the 'Job History' section from the main menu\n2. Locate the failed job (it will be marked in red)\n3. Click on the job to open its details\n4. Navigate to the 'Logs' tab in the job details window\n5. Expand the 'Step 3 (Load)' section specifically\n6. Look for error messages highlighted in red\n7. The error details will indicate what went wrong (connection issue, data type mismatch, etc.)\n8. Check preceding steps as well, as errors can cascade\n9. Use the error information to troubleshoot and fix the issue",
-  error: "1. This error means your pipeline is missing required field mappings\n2. Go back to your pipeline configuration\n3. Open the mapping section (usually in the transformation step)\n4. Look for fields marked with asterisks (*) - these are required\n5. Ensure all required fields have proper mappings\n6. If a required field doesn't exist in your source data, you may need to add a default value\n7. Use the 'Default Value' option to provide values for missing fields\n8. Run the validation check before executing to catch any remaining issues\n9. Save your changes and try running the pipeline again",
-  nulls: "1. Open the pipeline that's encountering null errors\n2. Navigate to the transformation section\n3. Click '+' to add a new transformation step\n4. Select 'Replace Nulls' from the transformation types\n5. In the configuration panel, select the column(s) with null values\n6. Specify the replacement value - common options are 0, empty string, 'N/A'\n7. You can set different replacements for different column types\n8. For advanced options, click 'Custom Expression'\n9. Click 'Apply' to add this transformation\n10. Place this step before transformations that can't handle nulls",
-  hang: "1. First, cancel the currently hanging job using the 'Cancel' button\n2. Check your source system connectivity - run a manual test connection\n3. Look at the job logs to identify where it's hanging\n4. Common hang points: large joins, complex calculations, slow source systems\n5. Check if your query is selecting too much data - add limits or filters\n6. Validate that indexes exist on fields used in joins and filters\n7. Break complex transformations into smaller steps\n8. Consider increasing timeout settings if processing large datasets\n9. Try running with a sample of data first to test\n10. If all else fails, contact support with your job ID and logs",
-  reset: "1. Navigate to the 'Job History' section\n2. Find the failed job in the list - it will be marked with a red status\n3. Click on the job to select it and view details\n4. Look for the 'Reset' button in the job details panel\n5. Click the 'Reset' button\n6. A confirmation dialog will appear - confirm the action\n7. The job status will change to 'Ready' (blue status)\n8. You'll now see a 'Run' button - click this to execute the reset job\n9. The job will start from the beginning or from the failed step (depending on your configuration)\n10. Monitor the job progress to ensure it completes successfully",
-  simple: "1. Navigate to the main menu and select 'Reporting'\n2. Look for the 'New Report' button and click it\n3. From the dropdown menu, select 'Simple Report'\n4. Choose which pipeline's data you want to report on\n5. Select the columns you want to include in your report\n6. Apply any filters to limit the data (optional)\n7. Choose how to sort the results (optional)\n8. Select the output format (table, chart, etc.)\n9. Click 'Generate' to create your report\n10. You can then view, download, or schedule the report from the results page",
-  scheduleReport: "1. Go to the Reporting section\n2. Find the report you want to schedule\n3. Click the 'Schedule' button (clock icon)\n4. Select 'Report Scheduler' from the menu\n5. Choose the frequency - daily, weekly, monthly options are available\n6. Set the specific time when the report should run\n7. Add recipient email addresses in the 'Recipients' field\n8. Select the format for delivery (PDF, Excel, CSV, etc.)\n9. Write a custom subject line and email message (optional)\n10. Check 'Include Data as Attachment' if needed\n11. Click 'Save Schedule' to activate",
-  export: "1. After running your pipeline successfully, go to the Output section\n2. Look for the 'Export' button - usually in the top right corner\n3. Click the button to show export options\n4. Select your preferred format - CSV or Excel\n5. In the export dialog, you can choose to include headers\n6. Select which columns to include in the export\n7. Choose any formatting options (date formats, number formats, etc.)\n8. Click the 'Export' button\n9. Choose where to save the file on your computer\n10. The export will begin and notify you when complete",
-  logs: "1. Navigate to the main menu and select 'Monitoring'\n2. Click on the 'Logs' tab\n3. You'll see a list of recent job executions\n4. Use the filter dropdown to show only the last 3 runs\n5. You can filter by job name, status, or date range\n6. Click on any run to see detailed logs\n7. Expand sections to see more detailed information\n8. Success messages are shown in green, warnings in yellow, errors in red\n9. For persistent access, logs are also stored in the /logs directory\n10. You can download logs using the 'Export' button for offline analysis",
-  reportBug: "1. From any screen, click on the 'Help' icon in the top-right corner\n2. Select 'Report a Bug' from the dropdown menu\n3. You'll see a bug report form\n4. Fill in a clear, descriptive title for the bug\n5. Provide step-by-step instructions on how to reproduce the issue\n6. Describe what you expected to happen vs. what actually happened\n7. Attach screenshots if possible - this is extremely helpful\n8. Include any error messages you received\n9. Add your contact information for follow-up questions\n10. Click 'Submit' to send the report to our support team",
-  escalate: "1. First, ensure you have an open ticket in the system\n2. Open the ticket system from your dashboard\n3. Find the ticket you need to escalate in the list\n4. Click on the ticket to open its details\n5. Look for the 'Escalate' button - usually near the top or bottom of the ticket\n6. Click the 'Escalate' button\n7. Select a reason for escalation from the dropdown options\n8. Add any additional context in the comments field\n9. Choose an escalation priority if that option is available\n10. Submit the escalation request\n11. A senior support person or manager will be assigned to your ticket",
-  viewStatus: "1. From the main dashboard, look for the 'Job Monitor' tab\n2. Click on this tab to open the monitoring view\n3. You'll see a list of all jobs with their current status\n4. The status indicators are color-coded for quick reference:\n   - Green: Completed successfully\n   - Yellow: Running/in progress\n   - Red: Failed\n   - Blue: Scheduled/Waiting\n5. Click on any job to see more detailed status information\n6. You can filter the list by status type, job name, or time period\n7. To set up alerts for specific status changes, click the 'Alerts' button\n8. Use the refresh button to get the most current status updates"
+  wizard: "1. Navigate to the top menu bar and click on 'Tools'\n2. Find and select 'Pipeline Wizard' from the dropdown menu\n3. The wizard will open in a new panel\n4. Follow the step-by-step instructions on screen\n5. Each step has a 'Help' icon with additional guidance\n6. You can save your progress at any time using the 'Save' button at the bottom",
+  preview: "1. Navigate to your pipeline configuration page\n2. Locate the 'Transformation' section (usually in the middle of the interface)\n3. After configuring a transformation, look for the blue 'Preview' button\n4. Click the button to see a sample of your transformed data\n5. You can adjust the number of preview rows in Settings > Preview Options",
+  filter: "1. In your pipeline editor, go to the 'Transformation' step\n2. Click on 'Add Transformation' button\n3. Select 'Filter' from the transformation types\n4. Define your filter condition using the expression builder\n5. You can create complex filters with AND/OR conditions\n6. Test your filter with the 'Preview Results' option\n7. Click 'Apply' when satisfied",
+  summarize: "1. In the transformation panel, click 'Add Step'\n2. Select 'Group By' from the available options\n3. Choose the column(s) to group by\n4. Select which metrics to calculate (sum, average, count, etc.)\n5. For each metric, select the column it applies to\n6. You can add multiple metrics by clicking '+Add Metric'\n7. Preview the results before applying",
+  customUI: "1. Click on the gear icon in the top-right corner\n2. Select 'UI Preferences' from the dropdown menu\n3. In the settings panel, you'll see options for:\n   - Layout (grid, list, compact)\n   - Color theme (light, dark, custom)\n   - Widget arrangement\n   - Dashboard components visibility\n4. Drag and drop widgets to rearrange them\n5. Use the 'Save Layout' button to preserve your changes\n6. You can create multiple saved layouts and switch between them",
+  create: "1. Navigate to the main dashboard and click 'Pipelines' in the main menu\n2. Click the '+ Create New' button (usually in the top right)\n3. In the Source step:\n   - Select your data source type (database, file, API)\n   - Configure connection parameters\n   - Test the connection\n4. In the Transform step:\n   - Add necessary transformations (filter, join, aggregate)\n   - Preview data after each step\n5. In the Destination step:\n   - Choose where to send the processed data\n   - Configure output settings (file format, table name)\n6. Configure error handling and notification settings\n7. Click 'Save' and then 'Run' to execute your pipeline",
+  schedule: "1. Go to the main menu and click on 'Scheduler'\n2. Click the '+ Create Job' button\n3. Select the pipeline you want to schedule\n4. Set the recurrence pattern:\n   - One-time, hourly, daily, weekly, or monthly\n   - For custom schedules, use the advanced CRON expression editor\n5. Configure start and end dates if applicable\n6. Set up email notifications for success/failure\n7. Configure timeout and retry settings\n8. Click 'Save' to activate the schedule",
+  reuse: "1. Navigate to your completed pipeline\n2. Click the 'Save As Template' option in the dropdown menu\n3. Give your template a descriptive name and category\n4. Optionally add documentation about the template's purpose\n5. Choose which parameters should be configurable by users\n6. Save the template\n7. To use the template: Go to 'Saved Templates' section, select your template, and click 'Create From Template'",
+  conditional: "1. In the transformation step of your pipeline, click 'Add Step'\n2. Select 'Conditional Logic' or 'If-Then' from the options\n3. In the configuration panel:\n   - Define your condition (IF clause)\n   - Specify what happens when condition is true\n   - Specify what happens when condition is false\n4. For complex logic, you can nest conditions\n5. You can use the expression builder to create conditions visually\n6. Test your logic with sample data using the 'Test' button\n7. Save your conditional step when satisfied",
+  failure: "1. Go to the 'Jobs' or 'Monitoring' section in the main menu\n2. Locate your failed job in the list\n3. Click on the job to open details\n4. Navigate to the 'Logs' tab\n5. Look specifically at 'Step 3 (Load)' section of the logs\n6. Common failures in this step include:\n   - Database connection issues\n   - Permission problems\n   - Schema validation errors\n   - Resource limitations\n7. The error message should indicate the specific issue\n8. You can also check the 'Statistics' tab for performance bottlenecks",
+  error: "This error appears when required fields are missing in your configuration. To fix it:\n1. Look for fields marked with a red asterisk (*) in the interface\n2. Check each section of your pipeline configuration\n3. Pay special attention to connection parameters\n4. Verify that all mapping fields are properly set\n5. For database destinations, ensure primary keys are defined\n6. Check for any validation rules that might be failing\n7. The specific field name is usually mentioned in the error details",
+  nulls: "1. Go to your transformation configuration\n2. Look for the 'Data Cleaning' or 'Data Quality' section\n3. Select 'Replace Nulls' from the options\n4. For each column with null values, you can choose:\n   - Replace with a default value\n   - Replace with average/median (for numeric data)\n   - Replace with most common value\n   - Replace with previous/next value\n5. You can apply different strategies to different columns\n6. Preview your changes before applying\n7. This transformation should run before any calculation steps in your pipeline",
+  hang: "When your job hangs, follow these steps:\n1. Check the job status page for any progress indicators\n2. Verify the source system is accessible and responsive\n3. Look for resource bottlenecks (memory, CPU, network)\n4. Check for locked tables or blocked transactions\n5. Try the following:\n   - Cancel the current job\n   - Check connection settings\n   - Review data volume - large datasets may need optimization\n   - Check for infinite loops in custom scripts\n6. If the issue persists, try running with debug logging enabled\n7. You may need to contact support if it's a system-wide issue",
+  reset: "1. Go to the 'Job History' section in the main menu\n2. Find your failed job in the list\n3. Either click on the job and then select 'Reset' from the detail page\n4. Or use the action menu (three dots) next to the job and select 'Reset'\n5. In the confirmation dialog, you can choose to:\n   - Reset from the beginning\n   - Reset from the failed step\n   - Reset with modified parameters\n6. Optionally add a note about why you're resetting\n7. Click 'Confirm' to initiate the reset\n8. The job will be queued to run again",
+  simple: "1. Navigate to the 'Reporting' section in the main menu\n2. Click on '+ New Report' button\n3. In the report builder:\n   - Select the pipeline or dataset to report on\n   - Choose the report type (tabular, chart, pivot)\n   - Select columns to include\n   - Apply any filters or sorting\n4. Preview the report using the 'Generate Preview' button\n5. Make any adjustments to formatting or layout\n6. Save your report with a descriptive name\n7. You can export the report or schedule it for regular delivery",
+  scheduleReport: "1. Go to 'Reporting' section and select the report you want to schedule\n2. Click on 'Schedule' or find the 'Report Scheduler' option\n3. Configure the schedule settings:\n   - Frequency (daily, weekly, monthly)\n   - Time of day to run\n   - Start date and optional end date\n4. In the 'Recipients' section:\n   - Add email addresses for delivery\n   - Choose delivery format (PDF, Excel, CSV, etc.)\n   - Add an optional message\n5. Set report parameters if your report has variables\n6. Enable/disable notifications for successful deliveries\n7. Save your schedule settings",
+  export: "1. Go to the 'Output' or 'Results' section of your pipeline\n2. Look for the 'Export' or 'Download' button\n3. Select your preferred format:\n   - CSV (for simple tabular data)\n   - Excel (for formatted data with multiple sheets)\n   - JSON (for hierarchical data)\n   - XML (for structured data)\n4. Configure export options:\n   - Include/exclude headers\n   - Set delimiter (for CSV)\n   - Compression options\n5. Click 'Export' to generate the file\n6. Save the downloaded file to your preferred location\n7. For large datasets, consider using scheduled exports",
+  logs: "1. Navigate to the 'Monitoring' section in the main menu\n2. Select the 'Logs' tab\n3. Use the filters to narrow down:\n   - Select the relevant pipeline\n   - Set the time range to cover the last 3 runs\n   - Optionally filter by log level (INFO, ERROR, etc.)\n4. The logs will be displayed in chronological order\n5. Click on a log entry to see full details\n6. You can download the logs using the 'Export' button\n7. For specific run logs, you can also go to Job History and select a specific job",
+  reportBug: "1. Click on the 'Help' menu in the top navigation bar\n2. Select 'Report a Bug' from the dropdown menu\n3. In the bug report form:\n   - Enter a descriptive title for the issue\n   - Provide detailed steps to reproduce the problem\n   - Describe what you expected vs. what happened\n   - Select the severity level\n4. Attach relevant screenshots by using the 'Attach Files' button\n5. If applicable, attach log files or error messages\n6. Provide your contact information for follow-up\n7. Click 'Submit' to send the bug report to the support team",
+  escalate: "1. Access the ticket system via the 'Support' menu\n2. Find your existing ticket in the list\n3. Open the ticket details page\n4. Look for the 'Escalate' button (usually near the top or bottom)\n5. In the escalation form:\n   - Select the reason for escalation\n   - Provide additional context about the urgency\n   - Specify desired resolution timeframe\n6. Submit the escalation request\n7. The system will notify senior support staff and management\n8. You should receive acknowledgment of the escalation within the SLA timeframe",
+  viewStatus: "1. Navigate to the 'Job Monitor' tab in the main interface\n2. You'll see a list of all current and recent jobs\n3. The status column shows current state (Running, Completed, Failed, etc.)\n4. For active jobs, you'll see a progress indicator\n5. Click on any job to view detailed status information including:\n   - Start time and duration\n   - Current step and progress percentage\n   - Resource utilization\n   - Records processed/failed\n6. Enable auto-refresh for real-time updates\n7. You can filter the list to focus on specific job types or statuses"
 };
 
 let currentLevel = 'root';
 let interactionCount = 0;
-let dissatisfactionTracker = {}; // Track dissatisfaction count for each question
 
 function renderMenu(level) {
   const menuDiv = document.getElementById("menu-level");
@@ -347,10 +379,11 @@ function goBack() {
 
 function resetToHome() {
   const chatbox = document.getElementById("chatbox");
-  chatbox.innerHTML = `<div class="msg bot"><div class="text">👋 Hello! I am <strong>ETL BOT</strong>. Select a topic to get started.</div></div>`;
+  chatbox.innerHTML = `<div class="msg bot"><div class="text">Hello! I am <strong>ETL BOT</strong>. Select a topic to get started.</div></div>`;
   currentLevel = 'root';
   interactionCount = 0;
-  dissatisfactionTracker = {}; // Reset dissatisfaction counter
+  secondFeedbackAttempt = false;
+  currentQueryValue = null;
   renderMenu(currentLevel);
   document.getElementById("chat-container").style.display = "flex";
   document.getElementById("agent-container").style.display = "none";
@@ -360,101 +393,236 @@ function resetToHome() {
 
 function sendQuery() {
   const selected = document.querySelector('input[name="query"]:checked');
-  const userText = selected ? selected.nextSibling.textContent.trim() : document.getElementById("customQuery").value.trim();
+  const customQueryInput = document.getElementById("customQuery");
+  
+  // Check if custom query is visible - that means we're dealing with a custom query
+  const isCustomQueryMode = customQueryInput.style.display === 'block';
+  
+  // If in custom query mode, use the input value, otherwise use the selected radio button text
+  const userText = isCustomQueryMode ? customQueryInput.value.trim() : 
+                   (selected ? selected.nextSibling.textContent.trim() : '');
+  
+  // Return if the query is empty
+  if (userText === '') {
+    return;
+  }
+  
   const chatbox = document.getElementById("chatbox");
+  
+  // If the selected option is "other" and the custom query is not visible yet,
+  // just show the custom query input and return
+  if (selected && selected.value === "other" && !isCustomQueryMode) {
+    customQueryInput.style.display = 'block';
+    customQueryInput.focus();
+    return;
+  }
+  
+  // Add the user message to the chat
   const userMsg = document.createElement("div");
   userMsg.className = "msg user";
   userMsg.innerHTML = `<div class='text'>${userText}</div>`;
   chatbox.appendChild(userMsg);
   chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
 
-  const value = selected ? selected.value : "custom";
-
-  if (value === "other") {
-    document.getElementById("customQuery").style.display = 'block';
-    return;
-  }
-
-  if (hierarchy[value]) {
-    currentLevel = value;
+  if (selected && hierarchy[selected.value]) {
+    // Navigate to a submenu
+    currentLevel = selected.value;
     renderMenu(currentLevel);
     return;
   }
 
-  const botText = responses[value] || "Thank you! A specialist will follow up on this custom query.";
+  if (isCustomQueryMode) {
+    // This is a custom query the user typed in
+    handleCustomQuery(userText, chatbox);
+    // Reset the input field and hide it
+    customQueryInput.value = '';
+    customQueryInput.style.display = 'none';
+    return;
+  }
+
+  // Standard response flow for predefined questions
+  const value = selected ? selected.value : "";
+  const botText = responses[value] || "Thank you! A specialist will follow up on this query.";
   const botMsg = document.createElement("div");
   botMsg.className = "msg bot";
   botMsg.innerHTML = `<div class='text'>${botText}</div>`;
   chatbox.appendChild(botMsg);
-  chatbox.scrollTop = chatbox.scrollHeight;
+  chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
 
   interactionCount++;
   document.getElementById("satisfactionDiv").style.display = "flex";
 }
 
+function handleCustomQuery(queryText, chatbox) {
+  // Clear the custom query input
+  document.getElementById("customQuery").value = '';
+  
+  // Show the response for custom query
+  const botMsg = document.createElement("div");
+  botMsg.className = "msg bot";
+  botMsg.innerHTML = `<div class='text'>
+    I don't have a specific answer for "${queryText}" in my knowledge base.
+    <em style="display: block; margin-top: 8px; font-size: 0.9em; color: #666;">Your question has been logged to improve our system.</em>
+    Would you like to:
+  </div>`;
+  chatbox.appendChild(botMsg);
+  
+  // Create option buttons
+  const optionsDiv = document.createElement("div");
+  optionsDiv.style.display = "flex";
+  optionsDiv.style.gap = "10px";
+  optionsDiv.style.margin = "10px 0";
+  
+  const connectBtn = document.createElement("button");
+  connectBtn.textContent = "Connect with Technical Expert";
+  connectBtn.style.padding = "8px 12px";
+  connectBtn.style.backgroundColor = "#1e88e5";
+  connectBtn.style.color = "white";
+  connectBtn.style.border = "none";
+  connectBtn.style.borderRadius = "4px";
+  connectBtn.style.cursor = "pointer";
+  connectBtn.onclick = () => showAgentConnectingScreen();
+  
+  const emailBtn = document.createElement("button");
+  emailBtn.textContent = "Get Email Follow-up";
+  emailBtn.style.padding = "8px 12px";
+  emailBtn.style.backgroundColor = "#1e88e5";
+  emailBtn.style.color = "white";
+  emailBtn.style.border = "none";
+  emailBtn.style.borderRadius = "4px";
+  emailBtn.style.cursor = "pointer";
+  emailBtn.onclick = () => handleEmailFollowUp(chatbox);
+  
+  optionsDiv.appendChild(connectBtn);
+  optionsDiv.appendChild(emailBtn);
+  chatbox.appendChild(optionsDiv);
+  
+  chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+}
+
+function handleEmailFollowUp(chatbox) {
+  // Create email input form
+  const emailForm = document.createElement("div");
+  emailForm.className = "msg bot";
+  emailForm.innerHTML = `<div class='text'>
+    <p>Please provide your email address for a follow-up:</p>
+    <input type="email" id="user-email" placeholder="your.email@example.com" style="width: 100%; padding: 8px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc;">
+    <button id="submit-email" style="padding: 8px 12px; background-color: #1e88e5; color: white; border: none; border-radius: 4px; cursor: pointer;">Submit</button>
+  </div>`;
+  chatbox.appendChild(emailForm);
+  
+  // Add event listener to the submit button
+  setTimeout(() => {
+    document.getElementById("submit-email").addEventListener("click", () => {
+      const email = document.getElementById("user-email").value;
+      if (email && email.includes('@')) {
+        const thankYou = document.createElement("div");
+        thankYou.className = "msg bot";
+        thankYou.innerHTML = `<div class='text'>Thank you! An expert will contact you at ${email} within 24 hours.</div>`;
+        chatbox.appendChild(thankYou);
+        
+        const homeBtn = document.createElement("button");
+        homeBtn.textContent = "Return to Home";
+        homeBtn.onclick = resetToHome;
+        chatbox.appendChild(homeBtn);
+      } else {
+        const error = document.createElement("div");
+        error.className = "msg bot";
+        error.innerHTML = "<div class='text'>Please enter a valid email address.</div>";
+        chatbox.appendChild(error);
+      }
+      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+    });
+  }, 100);
+  
+  chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+}
+
 function handleSatisfaction(satisfied) {
   document.getElementById("satisfactionDiv").style.display = "none";
   const chatbox = document.getElementById("chatbox");
+
+  if (satisfied) {
+    // Reset feedback attempt tracking when user is satisfied
+    secondFeedbackAttempt = false;
+    currentQueryValue = null;
+    return;
+  }
+
+  // User is not satisfied
+  // Find which response was shown by checking the available radio buttons
+  const selected = document.querySelector('input[name="query"]:checked');
+  const value = selected ? selected.value : "custom";
   
-  // Get the last user question
-  const userMsgs = document.querySelectorAll('.msg.user');
-  const lastUserMsg = userMsgs[userMsgs.length - 1].querySelector('.text').textContent;
-  
-  if (!satisfied) {
-    // Track dissatisfaction for this question
-    if (!dissatisfactionTracker[lastUserMsg]) {
-      dissatisfactionTracker[lastUserMsg] = 1;
+  if (!secondFeedbackAttempt) {
+    // First feedback attempt - show detailed response
+    currentQueryValue = value;
+    secondFeedbackAttempt = true;
+    
+    if (detailedResponses[value]) {
+      // Format the detailed response as a list of steps with proper styling
+      const detailedSteps = detailedResponses[value].split('\n');
+      const stepsHTML = detailedSteps.map((step, index) => {
+        // Skip non-numbered steps (like intro text)
+        if (!step.trim().match(/^\d+\./)) {
+          return `<p>${step}</p>`;
+        }
+        return `<li class="step"><span class="step-number">${index+1}</span>${step.replace(/^\d+\.\s*/, '')}</li>`;
+      }).join('');
       
-      // First time dissatisfied - show detailed steps
-      const lastQuery = document.querySelector('input[name="query"]:checked')?.value;
-      if (lastQuery && detailedResponses[lastQuery]) {
-        const detailedResponse = document.createElement("div");
-        detailedResponse.className = "msg bot";
-        detailedResponse.innerHTML = `<div class='text'><strong>Here are more detailed steps:</strong><br>${detailedResponses[lastQuery].replace(/\\n/g, '<br>')}</div>`;
-        chatbox.appendChild(detailedResponse);
+      const detailedMsg = document.createElement("div");
+      detailedMsg.className = "msg bot";
+      detailedMsg.innerHTML = `<div class='text'>
+        <strong>Here's a more detailed solution:</strong>
+        <ul class="step-list">${stepsHTML}</ul>
+      </div>`;
+      chatbox.appendChild(detailedMsg);
+      chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+      
+      // Ask for feedback again after showing detailed steps
+      setTimeout(() => {
+        const feedbackMsg = document.createElement("div");
+        feedbackMsg.className = "msg bot";
+        feedbackMsg.innerHTML = "<div class='text'>Is this detailed explanation helpful?</div>";
+        chatbox.appendChild(feedbackMsg);
         
-        // Show satisfaction buttons again
+        // Display satisfaction buttons again
         document.getElementById("satisfactionDiv").style.display = "flex";
-      } else {
-        // Generic response if no detailed steps available
-        const sorry = document.createElement("div");
-        sorry.className = "msg bot";
-        sorry.innerHTML = "<div class='text'>I'm sorry that didn't help. Would you like to try a different question?</div>";
-        chatbox.appendChild(sorry);
-        
-        // Return to main menu
-        currentLevel = 'root';
-        renderMenu(currentLevel);
-      }
+        chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
+      }, 1000);
     } else {
-      // Second time dissatisfied - ask about technical expert
-      dissatisfactionTracker[lastUserMsg]++;
-      
-      const ask = document.createElement("div");
-      ask.className = "msg bot";
-      ask.innerHTML = "<div class='text'>I see you're still having issues with this question. Would you like to connect with a technical expert?</div>";
-      chatbox.appendChild(ask);
-
-      const yesBtn = document.createElement("button");
-      yesBtn.textContent = "Yes, connect me";
-      yesBtn.onclick = () => showAgentConnectingScreen();
-
-      const noBtn = document.createElement("button");
-      noBtn.textContent = "No, I'll try something else";
-      noBtn.onclick = () => {
-        const thankYou = document.createElement("div");
-        thankYou.className = "msg bot";
-        thankYou.innerHTML = "<div class='text'>Let's try something else then.</div>";
-        chatbox.appendChild(thankYou);
-        currentLevel = 'root';
-        renderMenu(currentLevel);
-      };
-
-      chatbox.appendChild(noBtn);
-      chatbox.appendChild(yesBtn);
+      // No detailed response available - offer human agent directly
+      offerHumanAgent(chatbox);
     }
+  } else {
+    // Second feedback attempt - user is still not satisfied
+    // Reset for next interaction
+    secondFeedbackAttempt = false;
+    currentQueryValue = null;
+    
+    // Offer human agent
+    offerHumanAgent(chatbox);
   }
 }
+
+// Helper function to offer human agent assistance
+function offerHumanAgent(chatbox) {
+  const ask = document.createElement("div");
+  ask.className = "msg bot";
+  ask.innerHTML = "<div class='text'>Would you like to connect with a human agent?</div>";
+  chatbox.appendChild(ask);
+
+  const yesBtn = document.createElement("button");
+  yesBtn.textContent = "Yes, connect me";
+  yesBtn.onclick = () => showAgentConnectingScreen();
+
+  const noBtn = document.createElement("button");
+  noBtn.textContent = "Get email follow-up";
+  noBtn.onclick = () => handleEmailFollowUp(chatbox);
+
+  chatbox.appendChild(noBtn);
+  chatbox.appendChild(yesBtn);
+  chatbox.scrollTo({ top: chatbox.scrollHeight, behavior: 'smooth' });
 }
 
 function showAgentConnectingScreen() {
@@ -475,7 +643,7 @@ function showAgentConnectingScreen() {
     if (timeLeft <= 0) {
       clearInterval(timer);
       countdownElem.style.display = "none";
-      statusElem.innerHTML = "✅ <span class='connected'>Agent Connected</span>";
+      statusElem.innerHTML = "<span class='connected'>Agent Connected</span>";
       closeBtn.style.display = "inline-block";
     }
   }, 1000);
